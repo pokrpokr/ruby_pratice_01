@@ -28,27 +28,34 @@ class Main < MainRequire
 			# 遍历插入更新数据
 			insert_datas.each_with_index do |insert_data, index|
 				success_info = {dd: false, fk: false, sk: false}
+				info_format = {data: insert_data, num: index}
 
 				sql = "select id from Lead where name = '#{insert_data[:dd][:khxm]}' and is_deleted = 0"
 				kh_result = @query.query_data('Lead', binding, sql)
 
-				insert_data[:dd][:khxm] = kh_result[:data]["id"]
-				# 行程单所需服务数据结构
-				if xcd_sxfw["#{xcd_ids[insert_data[:same_item]]}"]
-					xcd_sxfw["#{xcd_ids[insert_data[:same_item]]}"] += ";#{insert_data[:dd][:fwlx]}"
-				else
-					xcd_sxfw["#{xcd_ids[insert_data[:same_item]]}"] = "#{insert_data[:dd][:fwlx]}"
+				unless kh_result[:data]
+					@run_result[:fail].push(info_format) and next
 				end
+
+				insert_data[:dd][:khxm] = kh_result[:data]["id"]
 
 				xcd_datas = [{
 					mdd: insert_data[:dd].delete(:mdd),
 					cfrq: insert_data[:dd].delete(:cfrq),
 					jsrq: insert_data[:dd].delete(:jsrq),
-					rhts: insert_data[:dd].delete(:rhts),
-					sxfw: xcd_sxfw["#{xcd_ids[insert_data[:same_item]]}"]
+					rhts: insert_data[:dd].delete(:rhts)
 				}]
 
 				if xcd_ids[insert_data[:same_item]]
+					# 行程单所需服务数据结构
+					if xcd_sxfw["#{xcd_ids[insert_data[:same_item]]}"]
+						xcd_sxfw["#{xcd_ids[insert_data[:same_item]]}"] += ";#{insert_data[:dd][:fwlx]}"
+					else
+						xcd_sxfw["#{xcd_ids[insert_data[:same_item]]}"] = "#{insert_data[:dd][:fwlx]}"
+					end
+
+					xcd_datas[0][:sxfw] = xcd_sxfw["#{xcd_ids[insert_data[:same_item]]}"]
+
 					up_sql = "update xcd set sxfw='#{xcd_datas[0][:sxfw]}' where id ='#{xcd_ids[insert_data[:same_item]]}'"
 					xcd_up_result = @query.query_data('xcd', binding, up_sql)
 					puts "***********XCD#{insert_data[:same_item]}************"
@@ -56,20 +63,20 @@ class Main < MainRequire
 					puts "***********XCD#{insert_data[:same_item]}************"
 
 					unless xcd_up_result[:result]
-						info_format = {data: insert_data, num: index}
 						@run_result[:fail].push(info_format) and next
 					end
 				else
 					xcd_datas[0][:khxm] = insert_data[:dd][:khxm]
-					xcd_datas[0][:xcdzt] = '已转化'
+					xcd_datas[0][:recordtype] = '201853C8A8C785FKjZfx'
 					xcd_datas[0][:sfcwdd] = 'true'
+					xcd_datas[0][:sxfw] = insert_data[:dd][:fwlx]
 
 					xcd_result = @insert.insert_data('xcd', binding, xcd_datas)
 					puts "***********XCD#{insert_data[:same_item]}************"
 					puts "xcd_result is #{xcd_result}"
 					puts "***********XCD#{insert_data[:same_item]}************"
 					if xcd_result[:result]
-						xcd_ids[insert_data[:same_item]] = xcd_result[:oa_id]
+						xcd_ids["#{insert_data[:same_item]}"] = xcd_result[:oa_id]
 
 						sql = "select name from xcd where id = '#{xcd_result[:oa_id]}'"
 						l_bill_no = @query.query_data('xcd', binding, sql)
@@ -81,9 +88,11 @@ class Main < MainRequire
 						up_sql = "update xcd set name='#{shuffle_bill_no}', createdate= to_date('#{shuffle_create_time}', 'yyyy-mm-dd hh24:mi:ss'), cwLastUpdateDate= to_date('#{shuffle_create_time}', 'yyyy-mm-dd hh24:mi:ss') where id = '#{xcd_result[:oa_id]}'"
 						# 更新数据
 						xcd_up_result =  @query.query_data('xcd', binding, up_sql)
+						puts "********************Update**********************"
 						puts "xcd_up_result is #{xcd_up_result}"
+						puts "********************Update**********************"
+
 						unless xcd_up_result[:result]
-							info_format = {data: insert_data, num: index}
 							@run_result[:fail].push(info_format) and next
 						end
 					end
@@ -94,6 +103,7 @@ class Main < MainRequire
 				puts '#############========#############'
 				puts dd_datas[0][:glxcd]
 				puts '#############========#############'
+
 				case insert_data[:type]
 				when :FY
 					dd_datas[0][:ddbh] = generate_zbj_no(insert_data[:dd][:xdsj])
@@ -366,11 +376,11 @@ class Main < MainRequire
 
 				# 判断是否都成功？
 				info = all_success?(success_info)
-				info_format = {data: insert_data, num: index}
+
 				if info
 					@run_result[:success].push(info_format)
 				else
-					@run_result[:fail].push(info_format)
+					@run_result[:fail].push(info_format.merge(success_info: success_info))
 				end
 			end
 
@@ -385,6 +395,7 @@ class Main < MainRequire
 				puts "===========失败数据==========="
 			end
 
+			@run_result
 		else
 			puts "======================"
 			puts "获取binding失败"

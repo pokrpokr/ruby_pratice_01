@@ -1,6 +1,8 @@
 require File.expand_path('../base_require', __FILE__)
 
 class InsertData < BaseRequire
+	include HttpRequestCalm
+
 	def initialize(path)
 		@url = URI(path)
 		@params = {serviceName: 'insert'}
@@ -18,9 +20,25 @@ class InsertData < BaseRequire
 		request.set_form_data(@params)
 		request["Accept"] = 'application/json'
 
-		http.request(request) do |res|
+		# http.request(request) do |res|
+		# 	case res
+		# 	when Net::HTTPOK
+		# 		json_data = JSON.parse(res.body)
+		# 		@result[:result] = json_data["result"]
+		#
+		# 		if @result[:result]
+		# 			@result[:oa_id] = json_data["data"]["ids"][0]["id"]
+		# 		else
+		# 			@result[:return_info] = json_data["returnInfo"]
+		# 		end
+		# 	else
+		# 		@result
+		# 	end
+		# end
+
+		http_request_calm(@url, request) do |res|
 			case res
-			when Net::HTTPOK
+			when Net::HTTPSuccess
 				json_data = JSON.parse(res.body)
 				@result[:result] = json_data["result"]
 
