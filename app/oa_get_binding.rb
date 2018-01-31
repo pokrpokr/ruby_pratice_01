@@ -1,4 +1,4 @@
-require '/Users/chai/workspace_custom_insert/app/base_require'
+require File.expand_path('../base_require', __FILE__)
 
 class OaGetBinding < BaseRequire
 	include HttpRequestCalm

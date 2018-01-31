@@ -1,4 +1,4 @@
-require '/Users/chai/workspace_custom_insert/app/base_require'
+require File.expand_path('../base_require', __FILE__)
 
 class QueryData < BaseRequire
 	include HttpRequestCalm
@@ -18,6 +18,8 @@ class QueryData < BaseRequire
 		request = Net::HTTP::Get.new(@url.request_uri)
 		request["Accept"] = 'application/json'
 
+		# http = Net::HTTP.new(@url.host, @url.port)
+		#
 		# http.request(request) do |res|
 		# 	case res
 		# 	when Net::HTTPOK
