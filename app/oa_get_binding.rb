@@ -1,21 +1,38 @@
-require '/Users/chai/workspace_custom_insert/app/base_require'
+require File.expand_path('../base_require', __FILE__)
 
 class OaGetBinding < BaseRequire
-	def initialize(path)
+	include HttpRequestCalm
+
+	def initialize(path, userName, password)
 		@url = URI(path)
-		@params = {serviceName: 'clogin', userName: 'guoxiaolin@zhubaijia.com', password: '111111'}
+		@params = {serviceName: 'clogin', userName: "#{userName}", password: "#{password}"}
 		@result = {result: false, return_info: '', binding: ''}
 	end
 
 	def request
-		http = Net::HTTP.new(@url.host, @url.port)
 		request = Net::HTTP::Post.new(@url)
 		request.set_form_data(@params)
 		request["Accept"] = 'application/json'
 
-		http.request(request) do |res|
+		# http.request(request) do |res|
+		# 	case res
+		# 	when Net::HTTPOK
+		# 		json_data = JSON.parse(res.body)
+		#
+		# 		@result[:result] = json_data["result"]
+		# 		if @result[:result]
+		# 			@result[:binding] = json_data["binding"]
+		# 		else
+		# 			@result[:return_info] = json_data["returnInfo"]
+		# 		end
+		# 	else
+		# 		@result
+		# 	end
+		# end
+
+		http_request_calm(@url, request) do |res|
 			case res
-			when Net::HTTPOK
+			when Net::HTTPSuccess
 				json_data = JSON.parse(res.body)
 
 				@result[:result] = json_data["result"]
