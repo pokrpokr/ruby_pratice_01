@@ -3,9 +3,9 @@ require File.expand_path('../base_require', __FILE__)
 class OaGetBinding < BaseRequire
 	include HttpRequestCalm
 
-	def initialize(path)
+	def initialize(path, userName, password)
 		@url = URI(path)
-		@params = {serviceName: 'clogin', userName: 'guoxiaolin@zhubaijia.com', password: '111111'}
+		@params = {serviceName: 'clogin', userName: "#{userName}", password: "#{password}"}
 		@result = {result: false, return_info: '', binding: ''}
 	end
 

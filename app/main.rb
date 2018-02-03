@@ -2,9 +2,11 @@ require File.expand_path('../main_require', __FILE__)
 
 class Main < MainRequire
 	def initialize(conditions={})
-		api_url        = conditions[:api_url] || "http://47.90.54.160/distributor.action"
-		file_path      = conditions[:file_path] || "/Users/chai/workspace_custom_insert/data_file/后台相关数据.csv"
-		oa_get_binding = OaGetBinding.new(api_url)
+		api_url        = conditions[:api_url]
+		file_path      = conditions[:file_path]
+		userName       = conditions[:userName]
+		password       = conditions[:password]
+		oa_get_binding = OaGetBinding.new(api_url, userName, password)
 		@result        = oa_get_binding.request
 		@file_data     = ReadData.new(file_path)
 		@insert        = InsertData.new(api_url)
