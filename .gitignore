@@ -1,3 +1,4 @@
 # ignore data_file
 /data_file/*
 /.idea/*
+/config/*

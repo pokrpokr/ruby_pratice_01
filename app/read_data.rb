@@ -1,8 +1,10 @@
 require 'csv'
+require File.expand_path('../../config/config', __FILE__)
 
 class ReadData
-	def initialize(csvfile_path)
+	def initialize(csvfile_path, type)
 		@csvfile = csvfile_path
+		@type = type
 	end
 
 	# dd_data = {
@@ -38,10 +40,11 @@ class ReadData
 			row = row.to_h
 			# 读取对应数据
 			case row["订单类型"]
-			when "房源订单"
+			when "民宿订单"
 				type = :FY
+				dd_data[:khxm] = row["客户姓名"]
 				dd_data[:xdsj] = row["下单时间"]
-				dd_data[:state] = row["订单状态"]
+				dd_data[:state] = row["主状态"] || row["订单状态"]
 				dd_data[:rzrq] = row["入住日期"]
 				dd_data[:tfrq] = row["退房日期"]
 				dd_data[:rzrs] = row["入住人数"]
@@ -53,21 +56,26 @@ class ReadData
 				dd_data[:ddzj] = row["订单原价"]
 				# 订单总额
 				dd_data[:ddze] = row["订单金额"]
-				dd_data[:rzrmc] = row["客户姓名"]
+				dd_data[:rzrmc] = row["入住人姓名"]
 				dd_data[:fwlx] = '民宿'
 				dd_data[:mdd] = "#{row["地区"]}-#{row["国家"]}-#{row["城市"]}"
 				dd_data[:cfrq] = row["出发日期"]
 				dd_data[:jsrq] = row["结束日期"]
 				dd_data[:rhts] = "老板/股东推荐/KA/明星"
+				dd_data[:ysglddk] = row["已收关联订单款"] || row["收款金额"]
+				dd_data[:yfgysk] = row["已付供应商款"] || row["付款金额"]
+				dd_data[:fybh] = row["房源编号"]
 				# TODO 财务订单类型ID测试环境
-				dd_data[:recordtype] = '201843B7F9BE318G5wUr'
+				if @type == :test
+					dd_data[:recordtype] = Config::TEST_FY_RECORDTYPE
+				elsif @type == :formal
+					dd_data[:recordtype] = Config::FORMAL_FY_RECORDTYPE
+				end
 			when "机票订单"
 				type = :JP
 				dd_data[:xdsj] = row["下单时间"]
 				dd_data[:state] = row["订单状态"]
 				dd_data[:khxm] = row["客户姓名"]
-				dd_data[:ddyj] = row["机票总价"]
-				dd_data[:ddzj] = row["机票总价"]
 				dd_data[:jpzj1] = row["机票总价"]
 				dd_data[:ck1] = row["姓名"]
 				dd_data[:cklx1] = row["乘客类型"]
@@ -82,7 +90,11 @@ class ReadData
 				dd_data[:jsrq] = row["结束日期"]
 				dd_data[:rhts] = "老板/股东推荐/KA/明星"
 				# TODO 财务订单类型ID测试环境
-				dd_data[:recordtype] = '2018484F55E9C66Fmqcp'
+				if @type == :test
+					dd_data[:recordtype] = Config::TEST_JP_RECORDTYPE
+				elsif @type == :formal
+					dd_data[:recordtype] = Config::FORMAL_JP_RECORDTYPE
+				end
 			when "酒店订单"
 				type = :JD
 				dd_data[:xdsj] = row["下单时间"]
@@ -109,7 +121,11 @@ class ReadData
 				dd_data[:jsrq] = row["结束日期"]
 				dd_data[:rhts] = "老板/股东推荐/KA/明星"
 				# TODO 财务订单类型ID测试环境
-				dd_data[:recordtype] = '2018FE513E8C68B8kSps'
+				if @type == :test
+					dd_data[:recordtype] = Config::TEST_JD_RECORDTYPE
+				elsif @type == :formal
+					dd_data[:recordtype] = Config::FORMAL_JD_RECORDTYPE
+				end
 			when "单项订单"
 				type = :DX
 				dd_data[:xdsj] = row["下单时间"]
@@ -129,7 +145,11 @@ class ReadData
 				dd_data[:jsrq] = row["结束日期"]
 				dd_data[:rhts] = "老板/股东推荐/KA/明星"
 				# TODO 财务订单类型ID测试环境
-				dd_data[:recordtype] = '2018F47BA07741ATMFdw'
+				if @type == :test
+					dd_data[:recordtype] = Config::TEST_DX_RECORDTYPE
+				elsif @type == :formal
+					dd_data[:recordtype] = Config::FORMAL_DX_RECORDTYPE
+				end
 			end
 			# 收款工单
 			sk_data[:sklx] = row["收款类型"]
@@ -140,7 +160,11 @@ class ReadData
 			sk_data[:skbz] = row["收款币种"]
 			sk_data[:rmbje] = row["收款人民币金额"]
 			# TODO 财务订单类型ID测试环境
-			sk_data[:recordtype] = '2018843EB329522GC6PB'
+			if @type == :test
+				sk_data[:recordtype] = Config::TEST_SK_RECORDTYPE
+			elsif @type == :formal
+				sk_data[:recordtype] = Config::FORMAL_SK_RECORDTYPE
+			end
 
 			# 付款工单
 			fk_data[:jslx] = row["结算类型"]
@@ -150,14 +174,18 @@ class ReadData
 			fk_data[:zffs] = row["支付方式"]
 			fk_data[:yhmc] = row["银行名称"]
 			fk_data[:zhmc] = row["支行名称"]
-			fk_data[:skzh] = row["收款账号"]
+			fk_data[:skzh] = row["收款账号"] || ""
 			fk_data[:je] = row["付款金额"]
 			fk_data[:hm] = row["付款户名"]
 			fk_data[:bz] = row["付款币种"]
 			fk_data[:hl] = row["付款汇率"]
 			fk_data[:rmbje] = row["付款人民币金额"]
 			# TODO 财务订单类型ID测试环境
-			fk_data[:recordtype] = '20184CAAE0682F0bg1Dj'
+			if @type == :test
+				fk_data[:recordtype] = Config::TEST_FK_RECORDTYPE
+			elsif @type == :formal
+				fk_data[:recordtype] = Config::FORMAL_FK_RECORDTYPE
+			end
 
 			# 整合数据结构
 			in_data[:dd] = dd_data

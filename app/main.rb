@@ -1,27 +1,44 @@
 require File.expand_path('../main_require', __FILE__)
+require File.expand_path('../../config/config', __FILE__)
 
 class Main < MainRequire
 	def initialize(conditions={})
+		# app_type: {test, formal}
+		case conditions[:app_type]
+		when :test
+			conditions[:userName] = Config::TEST_USERNAME
+			conditions[:password] = Config::TEST_PASSWORD
+			conditions[:api_url] = Config::TEST_API_URL
+			conditions[:file_path] = Config::TEST_OFFER_FILE_PATH
+		when :formal
+			conditions[:userName] = Config::FORMAL_USERNAME
+			conditions[:password] = Config::FORMAL_PASSWORD
+			conditions[:api_url] = Config::FORMAL_API_URL
+			conditions[:file_path] = Config::DEC_FILE_PATH
+		end
 		api_url        = conditions[:api_url]
 		file_path      = conditions[:file_path]
 		userName       = conditions[:userName]
 		password       = conditions[:password]
 		oa_get_binding = OaGetBinding.new(api_url, userName, password)
 		@result        = oa_get_binding.request
-		@file_data     = ReadData.new(file_path)
+		@file_data     = ReadData.new(file_path, conditions[:app_type])
 		@insert        = InsertData.new(api_url)
 		@update        = UpdateData.new(api_url)
 		@query         = QueryData.new(api_url)
 		@generate      = ShuffleGenerated.new
+		@type          = conditions[:app_type]
 	end
 
 	def run
 		if @result[:result]
 			@run_result = {success: [], fail: []}
+			# 收付款关联订单map
+			gl_map = {FY: :glfydd, JP: :gljpdd, JD: :gljddd, DX: :gldxdd}
 			binding     = @result[:binding]
 
 			# 行程单单号Hash
-			xcd_ids     = {}
+			xcd_ids  = {}
 
 			xcd_sxfw = {}
 
@@ -32,8 +49,13 @@ class Main < MainRequire
 				success_info = {dd: false, fk: false, sk: false}
 				info_format  = {data: insert_data, num: index}
 
-				sql          = "select id from Lead where name = '#{insert_data[:dd][:khxm]}' and is_deleted = 0"
+				sql          = "select id from Lead where xm = '#{insert_data[:dd][:khxm]}' and is_deleted = 0"
 				kh_result    = @query.query_data('Lead', binding, sql)
+
+				puts "+++++++++++++++++++++++++++++++++++++++++++++++++++"
+				puts insert_data[:dd][:khxm]
+				puts kh_result
+				puts "+++++++++++++++++++++++++++++++++++++++++++++++++++"
 
 				unless kh_result[:data]
 					@run_result[:fail].push(info_format) and next
@@ -74,7 +96,12 @@ class Main < MainRequire
 					end
 				else
 					xcd_datas[0][:khxm]       = insert_data[:dd][:khxm]
-					xcd_datas[0][:recordtype] = '201853C8A8C785FKjZfx'
+
+					if @type == :test
+						xcd_datas[0][:recordtype] = Config::TEST_XCD_RECORDTYPE
+					elsif @type == :formal
+						xcd_datas[0][:recordtype] = Config::FORMAL_XCD_RECORDTYPE
+					end
 					xcd_datas[0][:sfcwdd]     = 'true'
 					xcd_datas[0][:sxfw]       = insert_data[:dd][:fwlx]
 
@@ -99,51 +126,21 @@ class Main < MainRequire
 				case insert_data[:type]
 				when :FY
 					dd_datas[0][:ddbh] = generate_zbj_no(xdsj)
-
-					dd_result = dd_insert(:FY, binding, dd_datas, index)
-					if dd_result[:result]
-						success_info[:dd]   = true
-						dd_id               = dd_result[:oa_id]
-						dd_up_result = dd_update(:FY, binding, dd_id, xdsj, index, shuffle_create_time)
-						success_info[:dd] = false unless dd_up_result[:result]
-
-						insert_data[:fk][:glfydd] = dd_id
-						insert_data[:sk][:glfydd] = dd_id
-					end
 				when :JP
-					dd_result = dd_insert(:JP, binding, dd_datas, index)
-					if dd_result[:result]
-						success_info[:dd]   = true
-						dd_id               = dd_result[:oa_id]
-						dd_up_result = dd_update(:JP, binding, dd_id, xdsj, index, shuffle_create_time)
-						success_info[:dd] = false unless dd_up_result[:result]
-
-						insert_data[:fk][:gljpdd] = dd_id
-						insert_data[:sk][:gljpdd] = dd_id
-					end
 				when :JD
-					dd_result = dd_insert(:JD, binding, dd_datas, index)
-					if dd_result[:result]
-						success_info[:dd]   = true
-						dd_id               = dd_result[:oa_id]
-						dd_up_result = dd_update(:JD, binding, dd_id, xdsj, index, shuffle_create_time)
-						success_info[:dd] = false unless dd_up_result[:result]
-
-						insert_data[:fk][:gljddd] = dd_id
-						insert_data[:sk][:gljddd] = dd_id
-					end
 				when :DX
 					dd_datas[0][:fwqdly] = '公司'
-					dd_result = dd_insert(:DX, binding, dd_datas, index)
-					if dd_result[:result]
-						success_info[:dd]   = true
-						dd_id               = dd_result[:oa_id]
-						dd_up_result = dd_update(:DX, binding, dd_id, xdsj, index, shuffle_create_time)
-						success_info[:dd] = false unless dd_up_result[:result]
+				end
 
-						insert_data[:fk][:gldxdd] = dd_id
-						insert_data[:sk][:gldxdd] = dd_id
-					end
+				dd_result = dd_insert(insert_data[:type], binding, dd_datas, index)
+				if dd_result[:result]
+					success_info[:dd]   = true
+					dd_id               = dd_result[:oa_id]
+					dd_up_result = dd_update(insert_data[:type], binding, dd_id, xdsj, index, shuffle_create_time)
+					success_info[:dd] = false unless dd_up_result[:result]
+
+					insert_data[:fk]["#{gl_map[insert_data[:type]]}"] = dd_id
+					insert_data[:sk]["#{gl_map[insert_data[:type]]}"] = dd_id
 				end
 
 				if success_info[:dd]
@@ -194,8 +191,6 @@ class Main < MainRequire
 				puts fal
 				puts "===========失败数据==========="
 			end
-
-			@run_result
 		else
 			puts "======================"
 			puts "获取binding失败"
@@ -256,7 +251,7 @@ class Main < MainRequire
 
 	def sk_update(*args)
 		sk_id, binding, xdsj, index, shuffle_create_time = args
-		sql                = "select name from skgd where name like 'SKGD-#{format_date(xdsj)}%'"
+		sql                = "select name from skgd where id= '#{sk_id}'"
 		l_sk_bill_no       = @query.query_data('skgd', binding, sql)
 		d_sk_bill          = {origin_data: l_sk_bill_no[:data]["name"], create_date: xdsj}
 		shuffle_sk_bill_no = @generate.generate(:SKGD, :order_num, d_sk_bill)
@@ -281,7 +276,7 @@ class Main < MainRequire
 
 	def fk_update(*args)
 		fk_id, binding, xdsj, index, shuffle_create_time = args
-		sql                  = "select name from fkgd where name like 'FKGD-#{format_date(xdsj)}%'"
+		sql                  = "select name from fkgd where id= '#{fk_id}'"
 		l_fk_bill_no         = @query.query_data('fkgd', binding, sql)
 		d_fk_bill            = {origin_data: l_fk_bill_no[:data]["name"], create_date: xdsj}
 		shuffle_fk_bill_no   = @generate.generate(:FKGD, :order_num, d_fk_bill)
